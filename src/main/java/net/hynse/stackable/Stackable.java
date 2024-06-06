@@ -9,6 +9,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Objects;
+
 public class Stackable extends JavaPlugin implements Listener {
 
     @Override
@@ -19,11 +21,12 @@ public class Stackable extends JavaPlugin implements Listener {
     @EventHandler
     public void onPrepareItemCraft(PrepareItemCraftEvent event) {
         ItemStack result = event.getInventory().getResult();
-        assert result != null;
-        ItemMeta meta = result.getItemMeta();
-        if (isStackableItem(result.getType()) && meta != null) {
-            meta.setMaxStackSize(getMaxStackSize(result.getType()));;
-            result.setItemMeta(meta);
+        if (result != null && isStackableItem(result.getType())) {
+            ItemMeta meta = result.getItemMeta();
+            if (meta != null) {
+                meta.setMaxStackSize(getMaxStackSize(result.getType()));
+                result.setItemMeta(meta);
+            }
         }
     }
 
