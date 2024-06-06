@@ -2,3 +2,4 @@ name: Stackable
 version: '${version}'
 main: net.hynse.stackable.Stackable
 api-version: '1.20'
+folia-supported: true
