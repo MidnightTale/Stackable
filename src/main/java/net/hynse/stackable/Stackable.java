@@ -2,9 +2,12 @@ package net.hynse.stackable;
 
 import org.bukkit.Material;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
+import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -18,9 +21,21 @@ public class Stackable extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this, this);
     }
 
-    @EventHandler
-    public void onPrepareItemCraft(PrepareItemCraftEvent event) {
-        ItemStack result = event.getInventory().getResult();
+//    @EventHandler
+//    public void onPrepareItemCraft(PrepareItemCraftEvent event) {
+//        ItemStack result = event.getInventory().getResult();
+//        if (result != null && isStackableItem(result.getType())) {
+//            ItemMeta meta = result.getItemMeta();
+//            if (meta != null) {
+//                meta.setMaxStackSize(getMaxStackSize(result.getType()));
+//                result.setItemMeta(meta);
+//            }
+//        }
+//    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onInventoryClick(InventoryClickEvent event) {
+        ItemStack result = event.getCurrentItem();
         if (result != null && isStackableItem(result.getType())) {
             ItemMeta meta = result.getItemMeta();
             if (meta != null) {
@@ -29,6 +44,18 @@ public class Stackable extends JavaPlugin implements Listener {
             }
         }
     }
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerPickupItem(EntityPickupItemEvent event) {
+        ItemStack item = event.getItem().getItemStack();
+        if (isStackableItem(item.getType())) {
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setMaxStackSize(getMaxStackSize(item.getType()));
+                item.setItemMeta(meta);
+            }
+        }
+    }
+
 
     private boolean isStackableItem(Material material) {
         return switch (material) {
