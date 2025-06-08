@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'com.gradleup.shadow' version '9.0.0-beta15'
 }
 
 group = 'net.hynse'
@@ -15,10 +16,12 @@ repositories {
         name = "sonatype"
         url = "https://oss.sonatype.org/content/groups/public/"
     }
+    maven { url 'https://jitpack.io' }
 }
 
 dependencies {
-    compileOnly "io.papermc.paper:paper-api:1.20.6-R0.1-SNAPSHOT"
+    compileOnly "io.papermc.paper:paper-api:1.21.5-R0.1-SNAPSHOT"
+    implementation("com.github.NahuLD.folia-scheduler-wrapper:folia-scheduler-wrapper:v0.0.3")
 }
 
 def targetJavaVersion = 21
@@ -38,7 +41,42 @@ tasks.withType(JavaCompile).configureEach {
         options.release.set(targetJavaVersion)
     }
 }
+tasks {
+    jar {
+        manifest {
+            attributes('paperweight-mappings-namespace': 'mojang')
+        }
+    }
 
+    shadowJar {
+        archiveClassifier.set('')
+        relocate 'com.github.NahuLD', 'net.hynse.link.lib'
+        minimize()
+
+        doFirst {
+            logger.lifecycle("Starting ShadowJar task")
+            logger.lifecycle("Relocating 'com.github.NahuLD' to 'net.hynse.hitpoint.lib'")
+        }
+
+        doLast {
+            logger.lifecycle("ShadowJar task completed. Output: ${archiveFile.get().asFile.absolutePath}")
+        }
+
+        manifest {
+            attributes('paperweight-mappings-namespace': 'mojang')
+        }
+    }
+
+    build {
+        dependsOn(shadowJar)
+        doFirst {
+            logger.lifecycle("Starting build task")
+        }
+        doLast {
+            logger.lifecycle("Build task completed")
+        }
+    }
+}
 processResources {
     def props = [version: version]
     inputs.properties props

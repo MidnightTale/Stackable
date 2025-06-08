@@ -1,5 +1,9 @@
 name: Stackable
 version: '${version}'
 main: net.hynse.stackable.Stackable
-api-version: '1.20'
+api-version: '1.21'
 folia-supported: true
+commands:
+  stackablereload:
+    description: Reloads the stackable items configuration.
+    usage: /<command>
