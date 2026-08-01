@@ -1,6 +1,13 @@
 debug: false
+
+# Rank perk mode
+# false = base "items" apply to everyone; groups still add/override via permissions
+# true  = base items need stackable.use; hoppers/world skip applying
+#         players only get stacks from permissions they have (use and/or group.*)
+require-permission: false
+
+# Base stacks (everyone, or stackable.use when require-permission is true)
 items:
-  # Food items
   suspicious_stew: 32
   rabbit_stew: 32
   mushroom_stew: 32
@@ -10,14 +17,42 @@ items:
   splash_potion: 8
   lingering_potion: 8
 
-  "*_boat": 4 # All boats
-  "*_chest_boat": 4 # All chest boats
-  "*_raft": 4 #  rafts
-  "*_chest_raft": 4 # chest rafts
+  "*_boat": 4
+  "*_chest_boat": 4
+  "*_raft": 4
+  "*_chest_raft": 4
 
-  "*minecart": 4 # All minecarts
+  "*minecart": 4
 
   saddle: 16
 
-  #"music_disc_*": 16 # All music discs
-  #"*_shulker_box": 64 # All shulker boxes
+  #"music_disc_*": 16
+  #"*_shulker_box": 64
+
+# Per-rank stack tiers.
+# Grant the permission to a LuckPerms group. Highest matching size wins.
+# Default permission node: stackable.group.<name>  (override with "permission:")
+#
+# Example LuckPerms:
+#   /lp group vip permission set stackable.group.vip true
+#   /lp group mvp permission set stackable.group.mvp true
+groups:
+  # vip:
+  #   # permission: stackable.group.vip
+  #   items:
+  #     potion: 16
+  #     splash_potion: 16
+  #     lingering_potion: 16
+  #     saddle: 32
+  # mvp:
+  #   items:
+  #     potion: 32
+  #     splash_potion: 32
+  #     lingering_potion: 32
+  #     "*_boat": 8
+  #     saddle: 64
+  # legend:
+  #   permission: stackable.group.legend
+  #   items:
+  #     potion: 64
+  #     "*minecart": 16

@@ -7,8 +7,24 @@ commands:
   stackablereload:
     description: Reloads the Stackable plugin configuration
     usage: /stackablereload
-    permission: stackable.admin
+    permission: stackable.reload
   stackabletest:
     description: Test regex patterns against material names
     usage: /stackabletest <pattern> [material]
     permission: stackable.admin
+permissions:
+  stackable.use:
+    description: Allows base custom stack sizes from the items section
+    default: true
+  stackable.reload:
+    description: Allows reloading the Stackable configuration
+    default: op
+  stackable.admin:
+    description: Full Stackable admin access
+    default: op
+    children:
+      stackable.use: true
+      stackable.reload: true
+  stackable.group.*:
+    description: Rank stack tiers (stackable.group.<name> nodes are registered from config at runtime)
+    default: false

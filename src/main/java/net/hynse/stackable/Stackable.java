@@ -37,9 +37,9 @@ public class Stackable extends JavaPlugin {
         Objects.requireNonNull(getCommand("stackabletest")).setExecutor(testRegexCommand);
         Objects.requireNonNull(getCommand("stackabletest")).setTabCompleter(testRegexCommand);
         
-        getLogger().info("Stackable plugin enabled with " + configManager.getDirectMaterialCount() + 
-                         " direct materials and " + configManager.getWildcardPatternCount() + 
-                         " wildcard patterns for custom stack sizes.");
+        getLogger().info("Stackable plugin enabled with " + configManager.getDirectMaterialCount() +
+                         " base materials, " + configManager.getWildcardPatternCount() +
+                         " wildcards, and " + configManager.getGroupCount() + " groups.");
     }
     
     @Override

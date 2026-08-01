@@ -1,5 +1,6 @@
 package net.hynse.stackable.listener;
 
+import com.destroystokyo.paper.event.player.PlayerRecipeBookClickEvent;
 import me.nahu.scheduler.wrapper.WrappedScheduler;
 import net.hynse.stackable.manager.StackSizeManager;
 import org.bukkit.Location;
@@ -12,7 +13,6 @@ import org.bukkit.event.block.CrafterCraftEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.*;
-import com.destroystokyo.paper.event.player.PlayerRecipeBookClickEvent;
 import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -23,49 +23,67 @@ import org.bukkit.inventory.ItemStack;
 public class StackableListener implements Listener {
     private final StackSizeManager stackSizeManager;
     private final WrappedScheduler scheduler;
-    
+
     public StackableListener(StackSizeManager stackSizeManager, WrappedScheduler scheduler) {
         this.stackSizeManager = stackSizeManager;
         this.scheduler = scheduler;
     }
-    
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryClick(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player player)) return;
 
-        // Apply immediately so subsequent vanilla stack logic sees the custom max
-        stackSizeManager.applyCustomStackSize(e.getCurrentItem());
-        stackSizeManager.applyCustomStackSize(e.getCursor());
-        if (e.getClick().isShiftClick() || e.getClick().isKeyboardClick()) {
-            stackSizeManager.applyCustomStackSizeToAll(player.getInventory().getContents());
+        if (!stackSizeManager.canUse(player)) {
+            stackSizeManager.restoreVanillaStackSize(e.getCurrentItem());
+            stackSizeManager.restoreVanillaStackSize(e.getCursor());
+            scheduler.runTaskAtEntity(player, () -> stackSizeManager.restorePlayerInventories(player));
+            return;
         }
 
-        // Recipe-book / shift moves finish after this event; re-enforce next tick
+        stackSizeManager.applyCustomStackSize(e.getCurrentItem(), player);
+        stackSizeManager.applyCustomStackSize(e.getCursor(), player);
+        if (e.getClick().isShiftClick() || e.getClick().isKeyboardClick()) {
+            stackSizeManager.applyCustomStackSizeToAll(player.getInventory().getContents(), player);
+        }
+
         scheduler.runTaskAtEntity(player, () -> stackSizeManager.enforcePlayerInventories(player));
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryDrag(InventoryDragEvent e) {
         if (!(e.getWhoClicked() instanceof Player player)) return;
-        e.getNewItems().values().forEach(stackSizeManager::applyCustomStackSize);
+        if (!stackSizeManager.canUse(player)) {
+            e.getNewItems().values().forEach(stackSizeManager::restoreVanillaStackSize);
+            scheduler.runTaskAtEntity(player, () -> stackSizeManager.restorePlayerInventories(player));
+            return;
+        }
+        e.getNewItems().values().forEach(item -> stackSizeManager.applyCustomStackSize(item, player));
         scheduler.runTaskAtEntity(player, () -> stackSizeManager.enforcePlayerInventories(player));
     }
 
-    /**
-     * Recipe book clicks rebuild ingredient stacks from material counts and ignore
-     * per-stack max_stack_size components. Ensure inventory items are tagged first,
-     * then split any oversized stacks the placer created.
-     */
     @EventHandler(priority = EventPriority.LOWEST)
     public void onRecipeBookClick(PlayerRecipeBookClickEvent e) {
         Player player = e.getPlayer();
-        stackSizeManager.applyCustomStackSizeToAll(player.getInventory().getContents());
-        stackSizeManager.applyCustomStackSize(player.getInventory().getItemInOffHand());
+        if (!stackSizeManager.canUse(player)) {
+            scheduler.runTaskAtEntity(player, () -> stackSizeManager.restorePlayerInventories(player));
+            return;
+        }
+        stackSizeManager.applyCustomStackSizeToAll(player.getInventory().getContents(), player);
+        stackSizeManager.applyCustomStackSize(player.getInventory().getItemInOffHand(), player);
         scheduler.runTaskAtEntity(player, () -> stackSizeManager.enforcePlayerInventories(player));
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPrepareCraft(PrepareItemCraftEvent e) {
+        Player player = e.getView().getPlayer() instanceof Player p ? p : null;
+        if (player != null) {
+            if (!stackSizeManager.canUse(player)) return;
+            CraftingInventory inventory = e.getInventory();
+            stackSizeManager.applyCustomStackSize(inventory.getResult(), player);
+            stackSizeManager.applyCustomStackSizeToAll(inventory.getMatrix(), player);
+            return;
+        }
+        if (!stackSizeManager.applyWithoutPlayer()) return;
         CraftingInventory inventory = e.getInventory();
         stackSizeManager.applyCustomStackSize(inventory.getResult());
         stackSizeManager.applyCustomStackSizeToAll(inventory.getMatrix());
@@ -74,11 +92,15 @@ public class StackableListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onCraftItem(CraftItemEvent e) {
         if (!(e.getWhoClicked() instanceof Player player)) return;
+        if (!stackSizeManager.canUse(player)) {
+            scheduler.runTaskAtEntity(player, () -> stackSizeManager.restorePlayerInventories(player));
+            return;
+        }
 
-        stackSizeManager.applyCustomStackSize(e.getCurrentItem());
-        stackSizeManager.applyCustomStackSize(e.getCursor());
+        stackSizeManager.applyCustomStackSize(e.getCurrentItem(), player);
+        stackSizeManager.applyCustomStackSize(e.getCursor(), player);
         if (e.getInventory().getResult() != null) {
-            stackSizeManager.applyCustomStackSize(e.getInventory().getResult());
+            stackSizeManager.applyCustomStackSize(e.getInventory().getResult(), player);
         }
 
         scheduler.runTaskAtEntity(player, () -> stackSizeManager.enforcePlayerInventories(player));
@@ -87,75 +109,99 @@ public class StackableListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryOpen(InventoryOpenEvent e) {
         if (!(e.getPlayer() instanceof Player player)) return;
+        if (!stackSizeManager.canUse(player)) {
+            stackSizeManager.restoreInventory(player.getInventory(), player);
+            return;
+        }
         stackSizeManager.enforceInventory(e.getInventory(), player);
         stackSizeManager.enforceInventory(player.getInventory(), player);
     }
-    
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onEntityPickup(EntityPickupItemEvent e) {
+        if (e.getEntity() instanceof Player player) {
+            if (!stackSizeManager.canUse(player)) {
+                scheduler.runTaskAtEntity(player, () ->
+                        stackSizeManager.restoreVanillaStackSize(e.getItem().getItemStack())
+                );
+                return;
+            }
+            scheduler.runTaskAtEntity(player, () ->
+                    stackSizeManager.applyCustomStackSize(e.getItem().getItemStack(), player)
+            );
+            return;
+        }
+        if (!stackSizeManager.applyWithoutPlayer()) return;
         scheduler.runTaskAtEntity(e.getEntity(), () ->
-            stackSizeManager.applyCustomStackSize(e.getItem().getItemStack())
+                stackSizeManager.applyCustomStackSize(e.getItem().getItemStack())
         );
     }
-    
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryMove(InventoryMoveItemEvent e) {
+        if (!stackSizeManager.applyWithoutPlayer()) return;
         Location location = e.getDestination().getLocation();
         if (location != null) {
             scheduler.runTaskAtLocation(location, () ->
-                stackSizeManager.applyCustomStackSize(e.getItem())
+                    stackSizeManager.applyCustomStackSize(e.getItem())
             );
         }
     }
-    
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onBlockDispense(BlockDispenseEvent e) {
+        if (!stackSizeManager.applyWithoutPlayer()) return;
         scheduler.runTaskAtLocation(e.getBlock().getLocation(), () ->
-            stackSizeManager.applyCustomStackSize(e.getItem())
+                stackSizeManager.applyCustomStackSize(e.getItem())
         );
     }
-    
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onItemSpawn(ItemSpawnEvent e) {
-        scheduler.runTaskAtEntity(e.getEntity(), () -> {
-            ItemStack item = e.getEntity().getItemStack();
-            stackSizeManager.applyCustomStackSize(item);
-        });
+        if (!stackSizeManager.applyWithoutPlayer()) return;
+        scheduler.runTaskAtEntity(e.getEntity(), () ->
+                stackSizeManager.applyCustomStackSize(e.getEntity().getItemStack())
+        );
     }
-    
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPrepareCrafter(CrafterCraftEvent e) {
+        if (!stackSizeManager.applyWithoutPlayer()) return;
         scheduler.runTaskAtLocation(e.getBlock().getLocation(), () ->
-            stackSizeManager.applyCustomStackSize(e.getResult())
+                stackSizeManager.applyCustomStackSize(e.getResult())
         );
     }
-    
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onFurnaceSmelt(FurnaceSmeltEvent e) {
+        if (!stackSizeManager.applyWithoutPlayer()) return;
         scheduler.runTaskAtLocation(e.getBlock().getLocation(), () ->
-            stackSizeManager.applyCustomStackSize(e.getResult())
+                stackSizeManager.applyCustomStackSize(e.getResult())
         );
     }
-    
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryPickupItem(InventoryPickupItemEvent e) {
+        if (!stackSizeManager.applyWithoutPlayer()) return;
         scheduler.runTaskAtLocation(e.getItem().getLocation(), () ->
-            stackSizeManager.applyCustomStackSize(e.getItem().getItemStack())
+                stackSizeManager.applyCustomStackSize(e.getItem().getItemStack())
         );
     }
-    
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryCreative(InventoryCreativeEvent e) {
         if (!(e.getWhoClicked() instanceof Player player)) return;
-        stackSizeManager.applyCustomStackSize(e.getCurrentItem());
-        stackSizeManager.applyCustomStackSize(e.getCursor());
+        if (!stackSizeManager.canUse(player)) {
+            stackSizeManager.restoreVanillaStackSize(e.getCurrentItem());
+            stackSizeManager.restoreVanillaStackSize(e.getCursor());
+            scheduler.runTaskAtEntity(player, () -> stackSizeManager.restorePlayerInventories(player));
+            return;
+        }
+        stackSizeManager.applyCustomStackSize(e.getCurrentItem(), player);
+        stackSizeManager.applyCustomStackSize(e.getCursor(), player);
         scheduler.runTaskAtEntity(player, () -> stackSizeManager.enforcePlayerInventories(player));
     }
-    
-    /**
-     * Applies custom stack sizes to all items in an inventory
-     * @param inv The inventory to process
-     */
+
     public void fixInventory(Inventory inv) {
         if (inv == null) return;
         stackSizeManager.applyCustomStackSizeToAll(inv.getContents());

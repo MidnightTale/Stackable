@@ -15,7 +15,7 @@ public class ReloadCommand implements CommandExecutor {
     
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (!sender.hasPermission("stackable.reload")) {
+        if (!sender.hasPermission("stackable.reload") && !sender.hasPermission("stackable.admin")) {
             sender.sendMessage("§cYou don't have permission to reload this config.");
             return true;
         }
