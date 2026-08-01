@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.logging.Level;
 
 /**
- * Glob-style wildcard matching for material names (*boat, *_chest_boat, etc.).
+ * Glob-style wildcard matching for material names (*boat, *_shulker_box, music_disc_*, etc.).
  */
 public final class RegexUtil {
     private static final char WILDCARD = '*';
@@ -60,11 +60,30 @@ public final class RegexUtil {
     /**
      * Matches a string against a wildcard pattern.
      * Supports *NAME, NAME*, *NAME*, NAME*NAME, and *.
+     * <p>
+     * Special case: {@code *_SUFFIX} also matches the bare {@code SUFFIX}
+     * (e.g. {@code *_SHULKER_BOX} matches undyed {@code SHULKER_BOX}).
      */
     public static boolean matchWildcard(String pattern, String text) {
         if (pattern.equals("*")) return true;
         if (!pattern.contains(String.valueOf(WILDCARD))) return pattern.equals(text);
 
+        if (matchGlob(pattern, text)) {
+            return true;
+        }
+
+        // *_FOO should also match undyed/base FOO (no color prefix)
+        if (pattern.startsWith("*_") && pattern.length() > 2) {
+            String bare = pattern.substring(2); // FOO from *_FOO
+            if (text.equals(bare)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean matchGlob(String pattern, String text) {
         String[] parts = pattern.split("\\*", -1);
         int pos = 0;
 

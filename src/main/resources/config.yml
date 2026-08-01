@@ -7,6 +7,7 @@ debug: false
 require-permission: false
 
 # Base stacks (everyone, or stackable.use when require-permission is true)
+# Always quote wildcard keys (YAML treats bare * specially).
 items:
   suspicious_stew: 32
   rabbit_stew: 32
@@ -26,8 +27,11 @@ items:
 
   saddle: 16
 
-  #"music_disc_*": 16
-  #"*_shulker_box": 64
+  # Matches undyed SHULKER_BOX and all colored *_SHULKER_BOX
+  "*_shulker_box": 64
+
+  # All music discs (music_disc_cat, music_disc_creator_music_box, ...)
+  "music_disc_*": 16
 
 # Per-rank stack tiers.
 # Grant the permission to a LuckPerms group. Highest matching size wins.

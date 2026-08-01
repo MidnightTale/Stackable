@@ -13,6 +13,7 @@ import org.bukkit.event.block.CrafterCraftEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.*;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -27,6 +28,22 @@ public class StackableListener implements Listener {
     public StackableListener(StackSizeManager stackSizeManager, WrappedScheduler scheduler) {
         this.stackSizeManager = stackSizeManager;
         this.scheduler = scheduler;
+    }
+
+    /**
+     * Existing inventory items (crafted shulkers, discs, etc.) only get custom
+     * max_stack_size after we touch them — apply on join so they can stack together.
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPlayerJoin(PlayerJoinEvent e) {
+        Player player = e.getPlayer();
+        scheduler.runTaskAtEntity(player, () -> {
+            if (!stackSizeManager.canUse(player)) {
+                stackSizeManager.restorePlayerInventories(player);
+                return;
+            }
+            stackSizeManager.enforcePlayerInventories(player);
+        });
     }
 
     @EventHandler(priority = EventPriority.LOWEST)

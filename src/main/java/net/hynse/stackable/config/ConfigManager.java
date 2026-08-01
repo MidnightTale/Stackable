@@ -39,6 +39,7 @@ public class ConfigManager {
         requirePermission = config.getBoolean("require-permission", false);
 
         loadItemSection(config.getConfigurationSection("items"), stackableItems, wildcardPatterns, "items");
+        expandWildcards(stackableItems, wildcardPatterns, "items");
         loadGroups(config.getConfigurationSection("groups"));
         registerGroupPermissions();
 
@@ -192,6 +193,7 @@ public class ConfigManager {
             Map<Material, Integer> materials = new LinkedHashMap<>();
             Map<String, Integer> wildcards = new LinkedHashMap<>();
             loadItemSection(groupSection.getConfigurationSection("items"), materials, wildcards, "groups." + key);
+            expandWildcards(materials, wildcards, "groups." + key);
 
             StackGroup group = new StackGroup(key, permission, materials, wildcards);
             if (group.isEmpty()) {
@@ -237,6 +239,40 @@ public class ConfigManager {
                 }
             }
         }
+    }
+
+    /**
+     * Resolves wildcard patterns into concrete Material entries so undyed items
+     * (e.g. SHULKER_BOX under *_shulker_box) and all music discs are registered
+     * the same way as explicit materials.
+     */
+    private void expandWildcards(
+            Map<Material, Integer> materials,
+            Map<String, Integer> wildcards,
+            String pathLabel
+    ) {
+        if (wildcards.isEmpty()) {
+            return;
+        }
+
+        int before = materials.size();
+        for (Material material : Material.values()) {
+            if (material.isLegacy() || !material.isItem()) {
+                continue;
+            }
+            int matched = RegexUtil.getBestMatchOrDefault(material, wildcards, -1);
+            if (matched < 0) {
+                continue;
+            }
+            Integer existing = materials.get(material);
+            materials.put(material, existing == null ? matched : Math.max(existing, matched));
+        }
+
+        int added = materials.size() - before;
+        Stackable.instance.getLogger().info(
+                "Expanded " + wildcards.size() + " wildcard(s) in " + pathLabel
+                        + " to " + added + " new material(s) (" + materials.size() + " total)."
+        );
     }
 
     private static int lookupIn(
