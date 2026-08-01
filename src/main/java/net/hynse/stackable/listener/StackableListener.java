@@ -3,6 +3,7 @@ package net.hynse.stackable.listener;
 import me.nahu.scheduler.wrapper.WrappedScheduler;
 import net.hynse.stackable.manager.StackSizeManager;
 import org.bukkit.Location;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -11,6 +12,8 @@ import org.bukkit.event.block.CrafterCraftEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.*;
+import com.destroystokyo.paper.event.player.PlayerRecipeBookClickEvent;
+import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
@@ -28,9 +31,64 @@ public class StackableListener implements Listener {
     
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryClick(InventoryClickEvent e) {
-        scheduler.runTaskAtEntity(e.getWhoClicked(), () ->
-            stackSizeManager.applyCustomStackSize(e.getCurrentItem())
-        );
+        if (!(e.getWhoClicked() instanceof Player player)) return;
+
+        // Apply immediately so subsequent vanilla stack logic sees the custom max
+        stackSizeManager.applyCustomStackSize(e.getCurrentItem());
+        stackSizeManager.applyCustomStackSize(e.getCursor());
+        if (e.getClick().isShiftClick() || e.getClick().isKeyboardClick()) {
+            stackSizeManager.applyCustomStackSizeToAll(player.getInventory().getContents());
+        }
+
+        // Recipe-book / shift moves finish after this event; re-enforce next tick
+        scheduler.runTaskAtEntity(player, () -> stackSizeManager.enforcePlayerInventories(player));
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onInventoryDrag(InventoryDragEvent e) {
+        if (!(e.getWhoClicked() instanceof Player player)) return;
+        e.getNewItems().values().forEach(stackSizeManager::applyCustomStackSize);
+        scheduler.runTaskAtEntity(player, () -> stackSizeManager.enforcePlayerInventories(player));
+    }
+
+    /**
+     * Recipe book clicks rebuild ingredient stacks from material counts and ignore
+     * per-stack max_stack_size components. Ensure inventory items are tagged first,
+     * then split any oversized stacks the placer created.
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onRecipeBookClick(PlayerRecipeBookClickEvent e) {
+        Player player = e.getPlayer();
+        stackSizeManager.applyCustomStackSizeToAll(player.getInventory().getContents());
+        stackSizeManager.applyCustomStackSize(player.getInventory().getItemInOffHand());
+        scheduler.runTaskAtEntity(player, () -> stackSizeManager.enforcePlayerInventories(player));
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onPrepareCraft(PrepareItemCraftEvent e) {
+        CraftingInventory inventory = e.getInventory();
+        stackSizeManager.applyCustomStackSize(inventory.getResult());
+        stackSizeManager.applyCustomStackSizeToAll(inventory.getMatrix());
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onCraftItem(CraftItemEvent e) {
+        if (!(e.getWhoClicked() instanceof Player player)) return;
+
+        stackSizeManager.applyCustomStackSize(e.getCurrentItem());
+        stackSizeManager.applyCustomStackSize(e.getCursor());
+        if (e.getInventory().getResult() != null) {
+            stackSizeManager.applyCustomStackSize(e.getInventory().getResult());
+        }
+
+        scheduler.runTaskAtEntity(player, () -> stackSizeManager.enforcePlayerInventories(player));
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onInventoryOpen(InventoryOpenEvent e) {
+        if (!(e.getPlayer() instanceof Player player)) return;
+        stackSizeManager.enforceInventory(e.getInventory(), player);
+        stackSizeManager.enforceInventory(player.getInventory(), player);
     }
     
     @EventHandler(priority = EventPriority.LOWEST)
@@ -88,9 +146,10 @@ public class StackableListener implements Listener {
     
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInventoryCreative(InventoryCreativeEvent e) {
-        scheduler.runTaskAtEntity(e.getWhoClicked(), () ->
-            stackSizeManager.applyCustomStackSize(e.getCurrentItem())
-        );
+        if (!(e.getWhoClicked() instanceof Player player)) return;
+        stackSizeManager.applyCustomStackSize(e.getCurrentItem());
+        stackSizeManager.applyCustomStackSize(e.getCursor());
+        scheduler.runTaskAtEntity(player, () -> stackSizeManager.enforcePlayerInventories(player));
     }
     
     /**
