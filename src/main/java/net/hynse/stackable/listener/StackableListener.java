@@ -48,6 +48,7 @@ public class StackableListener implements Listener {
     private final StackSizeManager stackSizeManager;
     private final WrappedScheduler scheduler;
     private final Map<UUID, Integer> permissionStates = new ConcurrentHashMap<>();
+    private boolean preparingCraft;
 
     public StackableListener(StackSizeManager stackSizeManager, WrappedScheduler scheduler) {
         this.stackSizeManager = stackSizeManager;
@@ -130,28 +131,35 @@ public class StackableListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPrepareCraft(PrepareItemCraftEvent e) {
-        CraftingInventory inventory = e.getInventory();
-        Player player = e.getView().getPlayer() instanceof Player p ? p : null;
+        // setMatrix()/setResult() re-fire this event; guard against recursion
+        if (preparingCraft) return;
+        preparingCraft = true;
+        try {
+            CraftingInventory inventory = e.getInventory();
+            Player player = e.getView().getPlayer() instanceof Player p ? p : null;
 
-        if (player != null) {
+            if (player != null) {
+                ItemStack result = inventory.getResult();
+                stackSizeManager.applyCustomStackSize(result, player);
+                inventory.setResult(result);
+
+                ItemStack[] matrix = inventory.getMatrix();
+                stackSizeManager.applyCustomStackSizeToAll(matrix, player);
+                inventory.setMatrix(matrix);
+                return;
+            }
+
+            if (!stackSizeManager.applyWithoutPlayer()) return;
             ItemStack result = inventory.getResult();
-            stackSizeManager.applyCustomStackSize(result, player);
+            stackSizeManager.applyCustomStackSize(result);
             inventory.setResult(result);
 
             ItemStack[] matrix = inventory.getMatrix();
-            stackSizeManager.applyCustomStackSizeToAll(matrix, player);
+            stackSizeManager.applyCustomStackSizeToAll(matrix);
             inventory.setMatrix(matrix);
-            return;
+        } finally {
+            preparingCraft = false;
         }
-
-        if (!stackSizeManager.applyWithoutPlayer()) return;
-        ItemStack result = inventory.getResult();
-        stackSizeManager.applyCustomStackSize(result);
-        inventory.setResult(result);
-
-        ItemStack[] matrix = inventory.getMatrix();
-        stackSizeManager.applyCustomStackSizeToAll(matrix);
-        inventory.setMatrix(matrix);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
