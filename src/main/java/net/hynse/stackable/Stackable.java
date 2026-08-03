@@ -5,6 +5,8 @@ import me.nahu.scheduler.wrapper.WrappedSchedulerBuilder;
 import net.hynse.stackable.command.ReloadCommand;
 import net.hynse.stackable.command.TestRegexCommand;
 import net.hynse.stackable.config.ConfigManager;
+import net.hynse.stackable.listener.FurnaceListener;
+import net.hynse.stackable.listener.PlayerListener;
 import net.hynse.stackable.listener.StackableListener;
 import net.hynse.stackable.manager.StackSizeManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -30,11 +32,14 @@ public class Stackable extends JavaPlugin {
         StackableListener eventListener = new StackableListener(stackSizeManager, scheduler);
 
         getServer().getPluginManager().registerEvents(eventListener, this);
+        getServer().getPluginManager().registerEvents(new FurnaceListener(stackSizeManager), this);
+        getServer().getPluginManager().registerEvents(new PlayerListener(stackSizeManager, scheduler), this);
         eventListener.startPermissionRefreshMonitor();
 
         Objects.requireNonNull(getCommand("stackablereload")).setExecutor(
                 new ReloadCommand(configManager, stackSizeManager, eventListener, scheduler)
         );
+
 
         TestRegexCommand testRegexCommand = new TestRegexCommand();
         Objects.requireNonNull(getCommand("stackabletest")).setExecutor(testRegexCommand);
