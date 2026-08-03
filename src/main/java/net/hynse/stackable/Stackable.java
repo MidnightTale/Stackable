@@ -12,38 +12,46 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.Objects;
 
 public class Stackable extends JavaPlugin {
-
     public static Stackable instance;
+
+    private WrappedScheduler scheduler;
 
     @Override
     public void onEnable() {
         instance = this;
-        WrappedSchedulerBuilder schedulerBuilder = WrappedSchedulerBuilder.builder().plugin(this);
-        WrappedScheduler scheduler = schedulerBuilder.build();
-        
+        scheduler = WrappedSchedulerBuilder.builder().plugin(this).build();
+
         saveDefaultConfig();
-        
+
         ConfigManager configManager = new ConfigManager();
-        StackSizeManager stackSizeManager = new StackSizeManager(configManager);
         configManager.loadConfig();
-        Stackable.instance.saveDefaultConfig();
-        
+
+        StackSizeManager stackSizeManager = new StackSizeManager(configManager);
         StackableListener eventListener = new StackableListener(stackSizeManager, scheduler);
+
         getServer().getPluginManager().registerEvents(eventListener, this);
-        
-        Objects.requireNonNull(getCommand("stackablereload")).setExecutor(new ReloadCommand(configManager));
-        
+        eventListener.startPermissionRefreshMonitor();
+
+        Objects.requireNonNull(getCommand("stackablereload")).setExecutor(
+                new ReloadCommand(configManager, stackSizeManager, eventListener, scheduler)
+        );
+
         TestRegexCommand testRegexCommand = new TestRegexCommand();
         Objects.requireNonNull(getCommand("stackabletest")).setExecutor(testRegexCommand);
         Objects.requireNonNull(getCommand("stackabletest")).setTabCompleter(testRegexCommand);
-        
-        getLogger().info("Stackable plugin enabled with " + configManager.getDirectMaterialCount() +
-                         " base materials, " + configManager.getWildcardPatternCount() +
-                         " wildcards, and " + configManager.getGroupCount() + " groups.");
+
+        getLogger().info("Stackable plugin enabled with "
+                + configManager.getDirectMaterialCount() + " base materials, "
+                + configManager.getWildcardPatternCount() + " wildcards, and "
+                + configManager.getGroupCount() + " groups.");
     }
-    
+
     @Override
     public void onDisable() {
+        if (scheduler != null) {
+            scheduler.cancelAllTasks();
+        }
         getLogger().info("Stackable plugin disabled.");
+        instance = null;
     }
 }

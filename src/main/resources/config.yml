@@ -1,9 +1,10 @@
 debug: false
 
 # Rank perk mode
-# false = base "items" apply to everyone; groups still add/override via permissions
-# true  = base items need stackable.use; hoppers/world skip applying
-#         players only get stacks from permissions they have (use and/or group.*)
+# false = base "items" apply to everyone; stackable.use is ignored
+# true  = base items require an explicit stackable.use permission
+#         hoppers/world skip player-only stack sizes
+#         groups still use stackable.group.<name>
 require-permission: false
 
 # Base stacks (everyone, or stackable.use when require-permission is true)
@@ -35,14 +36,13 @@ items:
 
 # Per-rank stack tiers.
 # Grant the permission to a LuckPerms group. Highest matching size wins.
-# Default permission node: stackable.group.<name>  (override with "permission:")
+# Default permission node: stackable.group.<name> (override with "permission:")
 #
 # Example LuckPerms:
 #   /lp group vip permission set stackable.group.vip true
 #   /lp group mvp permission set stackable.group.mvp true
 groups:
   # vip:
-  #   # permission: stackable.group.vip
   #   items:
   #     potion: 16
   #     splash_potion: 16
@@ -55,8 +55,3 @@ groups:
   #     lingering_potion: 32
   #     "*_boat": 8
   #     saddle: 64
-  # legend:
-  #   permission: stackable.group.legend
-  #   items:
-  #     potion: 64
-  #     "*minecart": 16

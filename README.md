@@ -1,11 +1,12 @@
-Changes stack sizes for items that normally do not stack well, including potions,
-stews, boats, minecarts, saddles, shulker boxes, and music discs.
+Stack sizes for items that normally do not stack well, including potions, stews, boats, minecarts, saddles, shulker boxes, and music discs.
 
 ![Custom item stack sizes](assets/stackable-inventory.png)
 
-Stack sizes are configured in `plugins/Stackable/config.yml`:
+Configure stack sizes in `plugins/Stackable/config.yml`:
 
 ```yml
+require-permission: true
+
 items:
   potion: 8
   saddle: 16
@@ -13,14 +14,26 @@ items:
   "music_disc_*": 16
 ```
 
-Wildcard rules work with material names, so one entry can cover every boat,
-minecart, colored shulker box, or music disc.
+When `require-permission` is enabled, players need `stackable.use`.
 
-Different stack sizes can also be assigned through permission groups. For
-example, `stackable.group.vip` can give VIP players larger potion or saddle
-stacks. The highest matching stack size wins.
+Rank-specific stack sizes can be configured under `groups:` and granted with:
+
+```text
+stackable.group.<name>
+```
+
+Example:
+
+```yml
+groups:
+  vip:
+    items:
+      potion: 16
+      saddle: 32
+```
+
+Wildcard rules can match every boat, minecart, colored shulker box, or music disc.
 
 Run `/stackablereload` after changing the config.
 
-Permissions: `stackable.use`, `stackable.reload`, `stackable.admin`, and
-`stackable.group.<name>`.
+Permissions: `stackable.use`, `stackable.reload`, `stackable.admin`, and `stackable.group.<name>`.

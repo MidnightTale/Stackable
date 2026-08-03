@@ -9,21 +9,20 @@ commands:
     usage: /stackablereload
     permission: stackable.reload
   stackabletest:
-    description: Test regex patterns against material names
+    description: Test wildcard patterns against material names
     usage: /stackabletest <pattern> [material]
     permission: stackable.admin
 permissions:
   stackable.use:
     description: Allows base custom stack sizes from the items section
-    default: true
+    default: false
   stackable.reload:
     description: Allows reloading the Stackable configuration
     default: op
   stackable.admin:
-    description: Full Stackable admin access
+    description: Full Stackable admin command access
     default: op
     children:
-      stackable.use: true
       stackable.reload: true
   stackable.group.*:
     description: Rank stack tiers (stackable.group.<name> nodes are registered from config at runtime)

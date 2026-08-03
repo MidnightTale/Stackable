@@ -12,6 +12,7 @@ import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.PluginManager;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,7 @@ public class ConfigManager {
     private final Map<String, Integer> wildcardPatterns = new LinkedHashMap<>();
     private final List<StackGroup> groups = new ArrayList<>();
     private final List<String> createdGroupPermissions = new ArrayList<>();
+    private final Set<Material> knownConfiguredMaterials = EnumSet.noneOf(Material.class);
     private boolean requirePermission;
 
     public void loadConfig() {
@@ -41,6 +43,7 @@ public class ConfigManager {
         loadItemSection(config.getConfigurationSection("items"), stackableItems, wildcardPatterns, "items");
         expandWildcards(stackableItems, wildcardPatterns, "items");
         loadGroups(config.getConfigurationSection("groups"));
+        rememberConfiguredMaterials();
         registerGroupPermissions();
 
         Stackable.instance.getLogger().info(
@@ -82,6 +85,21 @@ public class ConfigManager {
             }
         }
         return false;
+    }
+
+    /**
+     * Includes materials configured earlier during this plugin lifetime. This
+     * lets reload remove metadata from items deleted from config.yml.
+     */
+    public boolean isKnownConfiguredMaterial(Material material) {
+        return knownConfiguredMaterials.contains(material) || isConfiguredMaterial(material);
+    }
+
+    private void rememberConfiguredMaterials() {
+        knownConfiguredMaterials.addAll(stackableItems.keySet());
+        for (StackGroup group : groups) {
+            knownConfiguredMaterials.addAll(group.materials().keySet());
+        }
     }
 
     /**
@@ -159,6 +177,24 @@ public class ConfigManager {
             }
         }
         return false;
+    }
+
+    /**
+     * Compact snapshot of the permissions that affect this player.
+     * Used to refresh inventories only when a permission actually changes.
+     */
+    public int getPermissionState(Permissible who) {
+        int state = Boolean.hashCode(requirePermission);
+        state = 31 * state + Boolean.hashCode(hasBaseAccess(who));
+
+        if (who != null) {
+            for (StackGroup group : groups) {
+                state = 31 * state + group.permission().hashCode();
+                state = 31 * state + Boolean.hashCode(who.hasPermission(group.permission()));
+            }
+        }
+
+        return state;
     }
 
     public boolean hasBaseItems() {
